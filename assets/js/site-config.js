@@ -13,11 +13,12 @@ window.SITE_CONFIG = {
   },
 
   CATEGORIES: [
-    { id: "all", label: "All Tools (17)" },
+    { id: "all", label: "All Tools (19)" },
     { id: "edit", label: "Edit & Sign" },
     { id: "organize", label: "Organize PDF" },
     { id: "optimize", label: "Optimize" },
-    { id: "convert", label: "Convert" }
+    { id: "convert", label: "Convert" },
+    { id: "security", label: "Security" }
   ],
 
   TOOLS: [
@@ -207,6 +208,28 @@ window.SITE_CONFIG = {
       description: "Extract readable text from any PDF document directly in your browser and save as TXT.",
       url: "/tools/pdf-to-text.html",
       accept: ".pdf"
+    },
+    {
+      key: "protect-pdf",
+      title: "Protect PDF",
+      category: "security",
+      badge: "Security",
+      icon: "bi-shield-lock-fill",
+      color: "bg-rose-50 text-rose-600 border-rose-200",
+      description: "Encrypt your PDF with AES-256 password protection and control printing or copying permissions.",
+      url: "/tools/protect-pdf.html",
+      accept: ".pdf"
+    },
+    {
+      key: "unlock-pdf",
+      title: "Unlock PDF",
+      category: "security",
+      badge: "Security",
+      icon: "bi-unlock-fill",
+      color: "bg-teal-50 text-teal-600 border-teal-200",
+      description: "Remove open passwords and print/copy restrictions from your PDF file instantly.",
+      url: "/tools/unlock-pdf.html",
+      accept: ".pdf"
     }
   ],
 
@@ -222,7 +245,6 @@ window.SITE_CONFIG = {
       document.head.appendChild(link);
     }
 
-    // Automatic SEO: Canonical URL, Open Graph tags & JSON-LD Schema
     const activeTool = activeKey ? TOOLS.find((t) => t.key === activeKey) : null;
     const canonicalUrl = `https://${BRAND.domain}${activeTool ? activeTool.url : "/"}`;
     const pageDesc =
@@ -323,8 +345,8 @@ window.SITE_CONFIG = {
             <div class="flex items-center gap-4 font-semibold">
               <a href="/index.html" class="hover:text-[#e5322d]">Home</a>
               <a href="/tools/edit-pdf.html" class="hover:text-[#e5322d]">Edit PDF</a>
-              <a href="/tools/pptx-to-pdf.html" class="hover:text-[#e5322d]">PPTX to PDF</a>
-              <a href="/tools/word-to-pdf.html" class="hover:text-[#e5322d]">Word to PDF</a>
+              <a href="/tools/protect-pdf.html" class="hover:text-[#e5322d]">Protect PDF</a>
+              <a href="/tools/unlock-pdf.html" class="hover:text-[#e5322d]">Unlock PDF</a>
             </div>
           </div>
         </footer>

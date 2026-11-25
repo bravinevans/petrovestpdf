@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watermark PDF Online Free — Live Stamp Preview | Petrovest PDF</title>
+  <meta name="description" content="Stamp custom text watermarks over your PDF with live preview of text, color, opacity, size, and rotation angle.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Watermark PDF</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Stamp custom text over your PDF pages and preview the exact angle, color, and transparency live.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-stamp text-2xl"></i>
+        <span>Select PDF File</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drop a PDF file here</p>
+    </div>
+  </main>
+
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div class="studio-canvas">
+      <div class="mb-4 flex w-full max-w-5xl items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Live Watermark Preview</span>
+      </div>
+      <div id="pagesGrid" class="grid w-full max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"></div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Watermark Options</h2>
+        <p id="docNameLabel" class="mt-0.5 truncate text-xs text-slate-500">document.pdf</p>
+      </div>
+
+      <div class="mt-4 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700">Watermark Text</label>
+          <input id="wmTextInput" type="text" value="CONFIDENTIAL" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-bold">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold text-slate-700">Color</label>
+            <input id="wmColorInput" type="color" value="#e5322d" class="mt-1 h-9 w-full cursor-pointer rounded-lg border border-slate-300">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700">Font Size (pt)</label>
+            <input id="wmSizeInput" type="number" min="16" max="110" value="44" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-semibold">
+          </div>
+        </div>
+
+        <div>
+          <label class="flex justify-between font-bold text-slate-700">
+            <span>Opacity</span>
+            <span id="opacityValLabel">30%</span>
+          </label>
+          <input id="wmOpacityInput" type="range" min="0.08" max="0.9" step="0.02" value="0.30" class="mt-1 w-full accent-[#e5322d]">
+        </div>
+
+        <div>
+          <label class="flex justify-between font-bold text-slate-700">
+            <span>Rotation Angle</span>
+            <span id="angleValLabel">35°</span>
+          </label>
+          <input id="wmAngleInput" type="range" min="-60" max="60" step="5" value="35" class="mt-1 w-full accent-[#e5322d]">
+        </div>
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="applyBtn" class="btn-primary-red w-full text-base">
+          <i class="bi bi-stamp"></i>
+          <span>Add Watermark &amp; Download</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("watermark-pdf");
+
+    let sourceBytes = null;
+    let baseName = "document";
+    let pages = [];
+
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const pagesGrid = document.getElementById("pagesGrid");
+    const applyBtn = document.getElementById("applyBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => e.target.files[0] && loadPdf(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      if (e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+    });
+
+    ["wmTextInput", "wmColorInput", "wmSizeInput", "wmOpacityInput", "wmAngleInput"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", () => {
+        document.getElementById("opacityValLabel").textContent = `${Math.round(Number(document.getElementById("wmOpacityInput").value) * 100)}%`;
+        document.getElementById("angleValLabel").textContent = `${document.getElementById("wmAngleInput").value}°`;
+        renderPages();
+      });
+    });
+
+    async function loadPdf(file) {
+      baseName = file.name.replace(/\.pdf$/i, "");
+      document.getElementById("docNameLabel").textContent = file.name;
+      sourceBytes = await file.arrayBuffer();
+      const doc = await PdfEngine.loadPdfDocument(sourceBytes);
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+
+      pages = [];
+      for (let i = 1; i <= doc.numPages; i += 1) {
+        const canvas = document.createElement("canvas");
+        await PdfEngine.renderPageToCanvas(doc, i, canvas, 0.65);
+        pages.push({ num: i, previewUrl: canvas.toDataURL("image/jpeg", 0.85) });
+      }
+      renderPages();
+    }
+
+    function renderPages() {
+      const text = document.getElementById("wmTextInput").value || "CONFIDENTIAL";
+      const color = document.getElementById("wmColorInput").value;
+      const opacity = document.getElementById("wmOpacityInput").value;
+      const angle = Number(document.getElementById("wmAngleInput").value);
+      const size = Math.max(12, Math.round(Number(document.getElementById("wmSizeInput").value || 44) * 0.42));
+
+      pagesGrid.innerHTML = pages
+        .map(
+          (p) => `
+        <div class="flex flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+          <div class="relative flex h-60 items-center justify-center overflow-hidden rounded-xl bg-slate-50 p-2">
+            <img src="${p.previewUrl}" alt="Page ${p.num}" class="max-h-full max-w-full rounded shadow-xs">
+            <span class="pointer-events-none absolute select-none whitespace-nowrap font-extrabold tracking-wider"
+                  style="color:${color}; opacity:${opacity}; font-size:${size}px; transform: rotate(${-angle}deg);">
+              ${text.replace(/</g, "&lt;")}
+            </span>
+          </div>
+          <span class="mt-2 text-center text-xs font-bold text-slate-600">Page ${p.num}</span>
+        </div>`
+        )
+        .join("");
+    }
+
+    applyBtn.addEventListener("click", async () => {
+      const text = (document.getElementById("wmTextInput").value || "CONFIDENTIAL").trim();
+      if (!text) return;
+
+      applyBtn.disabled = true;
+      applyBtn.innerHTML = `<span>Stamping Watermark...</span>`;
+
+      try {
+        const pdfDoc = await window.PDFLib.PDFDocument.load(sourceBytes.slice(0));
+        const font = await pdfDoc.embedFont(window.PDFLib.StandardFonts.HelveticaBold);
+        const { r, g, b } = PdfEngine.hexToRgbNormalized(document.getElementById("wmColorInput").value);
+        const opacity = Number(document.getElementById("wmOpacityInput").value || 0.3);
+        const size = Number(document.getElementById("wmSizeInput").value || 44);
+        const angle = Number(document.getElementById("wmAngleInput").value || 35);
+
+        pdfDoc.getPages().forEach((page) => {
+          const { width, height } = page.getSize();
+          const textW = font.widthOfTextAtSize(text, size);
+          const rad = (angle * Math.PI) / 180;
+          const x = width / 2 - (textW / 2) * Math.cos(rad);
+          const y = height / 2 - (textW / 2) * Math.sin(rad);
+
+          page.drawText(text, {
+            x,
+            y,
+            size,
+            font,
+            color: window.PDFLib.rgb(r, g, b),
+            opacity,
+            rotate: window.PDFLib.degrees(angle)
+          });
+        });
+
+        const outBytes = await pdfDoc.save();
+        PdfEngine.downloadBytes(outBytes, `${baseName}-watermarked.pdf`);
+      } finally {
+        applyBtn.disabled = false;
+        applyBtn.innerHTML = `<i class="bi bi-stamp"></i><span>Add Watermark &amp; Download</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

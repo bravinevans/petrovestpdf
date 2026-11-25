@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML to PDF Converter Online Free — Live Visual Preview | Petrovest PDF</title>
+  <meta name="description" content="Write, paste, or upload HTML code with live visual document preview and export directly to PDF.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <section class="studio-layout flex-grow">
+    <div class="studio-canvas">
+      <div class="mb-3 flex w-full max-w-6xl flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Live HTML Editor &amp; Document Preview</span>
+        <div class="flex items-center gap-2">
+          <input id="htmlFileInput" type="file" accept=".html,.htm,text/html" hidden>
+          <button type="button" id="uploadHtmlBtn" class="tool-btn">
+            <i class="bi bi-upload"></i> Load .HTML File
+          </button>
+        </div>
+      </div>
+
+      <div class="grid w-full max-w-6xl grid-cols-1 gap-4 lg:grid-cols-2">
+        <div class="flex flex-col">
+          <label class="mb-1 text-xs font-bold text-slate-600">HTML Source</label>
+          <textarea id="htmlSourceInput" rows="24" class="w-full rounded-2xl border border-slate-300 bg-slate-900 p-4 font-mono text-xs leading-relaxed text-emerald-300 focus:border-[#e5322d] focus:outline-none"></textarea>
+        </div>
+
+        <div class="flex flex-col">
+          <label class="mb-1 text-xs font-bold text-slate-600">Live Document Preview</label>
+          <div id="liveRenderTarget" class="min-h-[480px] rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">HTML to PDF</h2>
+        <p class="mt-0.5 text-xs text-slate-500">100% browser-rendered vector &amp; CSS layout</p>
+      </div>
+
+      <div class="mt-4 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700">Paper Size</label>
+          <select id="paperSelect" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium">
+            <option value="a4" selected>A4</option>
+            <option value="letter">US Letter</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700">Orientation</label>
+          <select id="orientSelect" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium">
+            <option value="portrait" selected>Portrait</option>
+            <option value="landscape">Landscape</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="exportBtn" class="btn-primary-red w-full text-base">
+          <i class="bi bi-file-earmark-pdf"></i>
+          <span>Export to PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("html-to-pdf");
+
+    const sourceInput = document.getElementById("htmlSourceInput");
+    const previewEl = document.getElementById("liveRenderTarget");
+    const htmlFileInput = document.getElementById("htmlFileInput");
+
+    sourceInput.value = `<div style="font-family: sans-serif; color: #0f172a;">
+  <h1 style="margin: 0 0 8px; color: #e5322d;">Project Proposal</h1>
+  <p style="color: #475569; font-size: 14px;">Prepared with Petrovest PDF Live HTML Studio.</p>
+  <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="background: #f8fafc; text-align: left;">
+        <th style="padding: 8px; border: 1px solid #e2e8f0;">Item</th>
+        <th style="padding: 8px; border: 1px solid #e2e8f0;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">Frontend CDN</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">Active</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">Office Worker</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">Ready</td>
+      </tr>
+    </tbody>
+  </table>
+</div>`;
+
+    function syncPreview() {
+      previewEl.innerHTML = sourceInput.value;
+    }
+
+    sourceInput.addEventListener("input", syncPreview);
+    syncPreview();
+
+    document.getElementById("uploadHtmlBtn").addEventListener("click", () => htmlFileInput.click());
+    htmlFileInput.addEventListener("change", async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      sourceInput.value = await f.text();
+      syncPreview();
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("exportBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<span>Generating PDF...</span>`;
+
+      try {
+        await window.html2pdf()
+          .set({
+            margin: 10,
+            filename: `document-${Date.now()}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: {
+              unit: "mm",
+              format: document.getElementById("paperSelect").value,
+              orientation: document.getElementById("orientSelect").value
+            }
+          })
+          .from(previewEl)
+          .save();
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-file-earmark-pdf"></i><span>Export to PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

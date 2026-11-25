@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Split PDF Online Free — Extract PDF Pages Visually | Petrovest PDF</title>
+  <meta name="description" content="Separate one page or a whole set of PDF pages visually. Click thumbnails or enter page ranges and download as PDF or ZIP.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Split PDF</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Click pages visually or enter page ranges to extract them into separate PDFs or one combined file.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-layout-split text-2xl"></i>
+        <span>Select PDF File</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drop a PDF file here</p>
+    </div>
+  </main>
+
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div class="studio-canvas">
+      <div class="mb-4 flex w-full max-w-5xl flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Selected: <span id="selectedCountLabel" class="text-[#e5322d]">0</span> of <span id="totalPagesLabel">0</span> pages
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="selectAllBtn" class="tool-btn">Select All</button>
+          <button type="button" id="clearSelBtn" class="tool-btn">Clear Selection</button>
+        </div>
+      </div>
+
+      <div id="pagesGrid" class="grid w-full max-w-5xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"></div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Split PDF</h2>
+        <p id="docNameLabel" class="mt-0.5 truncate text-xs text-slate-500">document.pdf</p>
+      </div>
+
+      <div class="mt-4">
+        <label class="block text-xs font-bold text-slate-700">Pages to Extract (e.g. 1-3, 5, 8)</label>
+        <input id="rangeInput" type="text" placeholder="1-3, 5" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold">
+      </div>
+
+      <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <label class="flex cursor-pointer items-start gap-2.5 text-xs font-semibold text-slate-700">
+          <input id="mergeIntoOneCheck" type="checkbox" class="mt-0.5 rounded text-[#e5322d]">
+          <span>Merge all selected pages into a single PDF file (otherwise downloads a ZIP of individual page PDFs)</span>
+        </label>
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="splitActionBtn" class="btn-primary-red w-full text-base" disabled>
+          <i class="bi bi-layout-split"></i>
+          <span>Split PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("split-pdf");
+
+    let sourceBytes = null;
+    let baseName = "document";
+    let pages = []; // { num, previewUrl, selected }
+
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const pagesGrid = document.getElementById("pagesGrid");
+    const rangeInput = document.getElementById("rangeInput");
+    const splitBtn = document.getElementById("splitActionBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => e.target.files[0] && loadPdf(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      if (e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+    });
+
+    document.getElementById("selectAllBtn").addEventListener("click", () => {
+      pages.forEach((p) => { p.selected = true; });
+      syncRangeFromPages();
+      renderPages();
+    });
+
+    document.getElementById("clearSelBtn").addEventListener("click", () => {
+      pages.forEach((p) => { p.selected = false; });
+      syncRangeFromPages();
+      renderPages();
+    });
+
+    rangeInput.addEventListener("input", () => {
+      const nums = parseRange(rangeInput.value, pages.length);
+      if (!nums) return;
+      const set = new Set(nums);
+      pages.forEach((p) => { p.selected = set.has(p.num); });
+      renderPages();
+    });
+
+    async function loadPdf(file) {
+      baseName = file.name.replace(/\.pdf$/i, "");
+      document.getElementById("docNameLabel").textContent = file.name;
+      sourceBytes = await file.arrayBuffer();
+      const doc = await PdfEngine.loadPdfDocument(sourceBytes);
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+      document.getElementById("totalPagesLabel").textContent = doc.numPages;
+
+      pages = [];
+      for (let i = 1; i <= doc.numPages; i += 1) {
+        const canvas = document.createElement("canvas");
+        await PdfEngine.renderPageToCanvas(doc, i, canvas, 0.55);
+        pages.push({
+          num: i,
+          previewUrl: canvas.toDataURL("image/jpeg", 0.85),
+          selected: true
+        });
+      }
+
+      syncRangeFromPages();
+      renderPages();
+    }
+
+    function renderPages() {
+      const selectedCount = pages.filter((p) => p.selected).length;
+      document.getElementById("selectedCountLabel").textContent = selectedCount;
+      splitBtn.disabled = selectedCount === 0;
+
+      pagesGrid.innerHTML = pages
+        .map(
+          (p, idx) => `
+        <button type="button" data-idx="${idx}" class="group relative flex flex-col rounded-2xl border-2 p-2.5 text-left transition ${
+            p.selected
+              ? "border-emerald-500 bg-white shadow-md"
+              : "border-slate-200 bg-white/75 opacity-70 hover:opacity-100"
+          }">
+          <span class="absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+            p.selected ? "bg-emerald-500 text-white" : "border border-slate-300 bg-white text-slate-400"
+          }">
+            <i class="bi ${p.selected ? "bi-check-lg" : "bi-circle"}"></i>
+          </span>
+          <div class="flex h-44 w-full items-center justify-center overflow-hidden rounded-xl bg-slate-50 p-1.5">
+            <img src="${p.previewUrl}" alt="Page ${p.num}" class="max-h-full max-w-full rounded shadow-xs">
+          </div>
+          <span class="mt-2 block w-full text-center text-xs font-bold text-slate-700">Page ${p.num}</span>
+        </button>
+      `
+        )
+        .join("");
+
+      pagesGrid.querySelectorAll("[data-idx]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.idx);
+          pages[i].selected = !pages[i].selected;
+          syncRangeFromPages();
+          renderPages();
+        });
+      });
+    }
+
+    function syncRangeFromPages() {
+      const nums = pages.filter((p) => p.selected).map((p) => p.num);
+      if (!nums.length) {
+        rangeInput.value = "";
+        return;
+      }
+      const parts = [];
+      let start = nums[0], end = nums[0];
+      for (let i = 1; i < nums.length; i += 1) {
+        if (nums[i] === end + 1) end = nums[i];
+        else {
+          parts.push(start === end ? `${start}` : `${start}-${end}`);
+          start = end = nums[i];
+        }
+      }
+      parts.push(start === end ? `${start}` : `${start}-${end}`);
+      rangeInput.value = parts.join(", ");
+    }
+
+    function parseRange(str, max) {
+      const out = new Set();
+      const tokens = str.split(",").map((s) => s.trim()).filter(Boolean);
+      for (const tok of tokens) {
+        const m = tok.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (m) {
+          let a = Math.min(Number(m[1]), Number(m[2]));
+          let b = Math.max(Number(m[1]), Number(m[2]));
+          if (a < 1 || b > max) return null;
+          for (let n = a; n <= b; n += 1) out.add(n);
+        } else if (/^\d+$/.test(tok)) {
+          const n = Number(tok);
+          if (n < 1 || n > max) return null;
+          out.add(n);
+        } else {
+          return null;
+        }
+      }
+      return Array.from(out).sort((a, b) => a - b);
+    }
+
+    splitBtn.addEventListener("click", async () => {
+      const selected = pages.filter((p) => p.selected).map((p) => p.num);
+      if (!selected.length) return;
+
+      splitBtn.disabled = true;
+      splitBtn.innerHTML = `<span>Extracting...</span>`;
+
+      try {
+        const srcDoc = await window.PDFLib.PDFDocument.load(sourceBytes.slice(0));
+        const mergeOne = document.getElementById("mergeIntoOneCheck").checked;
+
+        if (mergeOne || selected.length === 1) {
+          const outDoc = await window.PDFLib.PDFDocument.create();
+          const copied = await outDoc.copyPages(srcDoc, selected.map((n) => n - 1));
+          copied.forEach((p) => outDoc.addPage(p));
+          const bytes = await outDoc.save();
+          PdfEngine.downloadBytes(bytes, `${baseName}-extracted.pdf`);
+        } else {
+          const zip = new window.JSZip();
+          for (const num of selected) {
+            const single = await window.PDFLib.PDFDocument.create();
+            const [copied] = await single.copyPages(srcDoc, [num - 1]);
+            single.addPage(copied);
+            zip.file(`${baseName}-page-${num}.pdf`, await single.save());
+          }
+          const zipBlob = await zip.generateAsync({ type: "arraybuffer" });
+          PdfEngine.downloadBytes(zipBlob, `${baseName}-split.zip`, "application/zip");
+        }
+      } finally {
+        splitBtn.disabled = false;
+        splitBtn.innerHTML = `<i class="bi bi-layout-split"></i><span>Split PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

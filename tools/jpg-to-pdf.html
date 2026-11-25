@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JPG, PNG &amp; WebP to PDF Converter Online Free | Petrovest PDF</title>
+  <meta name="description" content="Convert JPG, PNG, and WebP images to PDF in seconds. Reorder images, rotate, and adjust page size and margins.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">JPG / PNG to PDF</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Convert images to PDF in seconds. Drag to reorder, rotate, and customize page size and margins.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-file-earmark-image text-2xl"></i>
+        <span>Select Images</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">Supports JPG, PNG, and WebP — drop multiple files here</p>
+    </div>
+  </main>
+
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div class="studio-canvas">
+      <div class="mb-4 flex w-full max-w-5xl items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Drag images to reorder • <span id="imgCountLabel">0</span> images
+        </span>
+        <button type="button" id="addMoreBtn" class="tool-btn border-red-200 bg-red-50 text-[#e5322d]">
+          <i class="bi bi-plus-lg"></i> Add Images
+        </button>
+      </div>
+      <div id="imagesGrid" class="grid w-full max-w-5xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4"></div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Image to PDF Options</h2>
+      </div>
+
+      <div class="mt-4 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700">Page Orientation</label>
+          <select id="orientSelect" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium">
+            <option value="portrait" selected>Portrait</option>
+            <option value="landscape">Landscape</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700">Page Size</label>
+          <select id="sizeSelect" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium">
+            <option value="a4" selected>A4 (210 × 297 mm)</option>
+            <option value="letter">US Letter (8.5 × 11 in)</option>
+            <option value="fit">Fit to Image Dimensions</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700">Page Margin</label>
+          <select id="marginSelect" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium">
+            <option value="0">No Margin (0 mm)</option>
+            <option value="10" selected>Small Margin (10 mm)</option>
+            <option value="20">Wide Margin (20 mm)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="convertBtn" class="btn-primary-red w-full text-base">
+          <i class="bi bi-file-earmark-pdf"></i>
+          <span>Convert to PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.4/Sortable.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("jpg-to-pdf");
+
+    let images = []; // { name, dataUrl, rotation }
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const imagesGrid = document.getElementById("imagesGrid");
+    const convertBtn = document.getElementById("convertBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    document.getElementById("addMoreBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => { addImages(e.target.files); e.target.value = ""; });
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      addImages(e.dataTransfer.files);
+    });
+
+    Sortable.create(imagesGrid, {
+      animation: 150,
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const [moved] = images.splice(evt.oldIndex, 1);
+        images.splice(evt.newIndex, 0, moved);
+        renderImages();
+      }
+    });
+
+    async function addImages(fileList) {
+      const valid = Array.from(fileList || []).filter((f) => f.type.startsWith("image/"));
+      if (!valid.length) return;
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+
+      for (const file of valid) {
+        const dataUrl = await new Promise((res) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result);
+          r.readAsDataURL(file);
+        });
+        images.push({ name: file.name, dataUrl, rotation: 0 });
+      }
+      renderImages();
+    }
+
+    function renderImages() {
+      document.getElementById("imgCountLabel").textContent = images.length;
+      convertBtn.disabled = images.length === 0;
+
+      imagesGrid.innerHTML = images
+        .map(
+          (img, idx) => `
+        <div class="flex flex-col rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xs cursor-grab">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">#${idx + 1}</span>
+            <div class="flex gap-1">
+              <button type="button" data-rot="${idx}" class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs hover:bg-slate-900 hover:text-white"><i class="bi bi-arrow-clockwise"></i></button>
+              <button type="button" data-del="${idx}" class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs hover:bg-[#e5322d] hover:text-white"><i class="bi bi-x-lg"></i></button>
+            </div>
+          </div>
+          <div class="flex h-44 items-center justify-center overflow-hidden rounded-xl bg-slate-50 p-2">
+            <img src="${img.dataUrl}" alt="${img.name}" class="max-h-full max-w-full rounded shadow-xs transition-transform" style="transform: rotate(${img.rotation}deg)">
+          </div>
+          <p class="mt-2 truncate text-center text-xs font-bold text-slate-700">${img.name}</p>
+        </div>`
+        )
+        .join("");
+
+      imagesGrid.querySelectorAll("[data-rot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.rot);
+          images[i].rotation = (images[i].rotation + 90) % 360;
+          renderImages();
+        });
+      });
+
+      imagesGrid.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          images.splice(Number(btn.dataset.del), 1);
+          if (!images.length) {
+            document.getElementById("workspaceStage").classList.add("hidden");
+            document.getElementById("uploadStage").classList.remove("hidden");
+          } else {
+            renderImages();
+          }
+        });
+      });
+    }
+
+    async function rasterizeRotated(src, rotation) {
+      const img = await new Promise((res) => {
+        const el = new Image();
+        el.onload = () => res(el);
+        el.src = src;
+      });
+      const swap = rotation === 90 || rotation === 270;
+      const canvas = document.createElement("canvas");
+      canvas.width = swap ? img.height : img.width;
+      canvas.height = swap ? img.width : img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      return { dataUrl: canvas.toDataURL("image/jpeg", 0.92), w: canvas.width, h: canvas.height };
+    }
+
+    convertBtn.addEventListener("click", async () => {
+      if (!images.length) return;
+      convertBtn.disabled = true;
+      convertBtn.innerHTML = `<span>Creating PDF...</span>`;
+
+      try {
+        const orient = document.getElementById("orientSelect").value === "landscape" ? "l" : "p";
+        const pageSize = document.getElementById("sizeSelect").value;
+        const margin = Number(document.getElementById("marginSelect").value || 0);
+        let pdf = null;
+
+        for (const item of images) {
+          const raster = await rasterizeRotated(item.dataUrl, item.rotation);
+          const format = pageSize === "fit" ? [raster.w * 0.264583, raster.h * 0.264583] : pageSize;
+
+          if (!pdf) {
+            pdf = new window.jspdf.jsPDF({ orientation: orient, unit: "mm", format });
+          } else {
+            pdf.addPage(format, orient);
+          }
+
+          const pw = pdf.internal.pageSize.getWidth();
+          const ph = pdf.internal.pageSize.getHeight();
+          const availW = Math.max(10, pw - margin * 2);
+          const availH = Math.max(10, ph - margin * 2);
+          const ratio = Math.min(availW / raster.w, availH / raster.h);
+          const dw = raster.w * ratio;
+          const dh = raster.h * ratio;
+
+          pdf.addImage(raster.dataUrl, "JPEG", (pw - dw) / 2, (ph - dh) / 2, dw, dh, undefined, "FAST");
+        }
+
+        PdfEngine.downloadBytes(pdf.output("arraybuffer"), `images-${Date.now()}.pdf`);
+      } finally {
+        convertBtn.disabled = false;
+        convertBtn.innerHTML = `<i class="bi bi-file-earmark-pdf"></i><span>Convert to PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

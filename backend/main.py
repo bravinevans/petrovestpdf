@@ -25,9 +25,14 @@ JOB_SEMAPHORE = asyncio.Semaphore(int(os.getenv("MAX_CONCURRENT_JOBS", "2")))
 OFFICE_EXTENSIONS = {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".csv", ".odt", ".ods", ".odp", ".rtf"}
 
 
+@app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "ok", "libreoffice": shutil.which("soffice") is not None}
+    return {
+        "status": "ok",
+        "service": "petrovestpdf-worker",
+        "libreoffice": shutil.which("soffice") is not None,
+    }
 
 
 async def save_upload(upload: UploadFile, dest: Path) -> int:

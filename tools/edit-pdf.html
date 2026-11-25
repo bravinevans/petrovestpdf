@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit PDF Online Free — Visual PDF Editor | Petrovest PDF</title>
+  <meta name="description" content="Edit PDF files visually in your browser. Add text, whiteout existing content, draw signatures, insert images, and highlight pages.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <!-- Upload Screen (Shown before PDF is loaded) -->
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Visual Online PDF Editor</h1>
+      <p class="mt-2 text-base text-slate-600">
+        See your document live as you edit: add text, whiteout existing text, draw signatures, and insert images.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="pdfFileInput" type="file" accept=".pdf,application/pdf" hidden>
+      <button type="button" id="selectPdfBtn" class="btn-primary-red">
+        <i class="bi bi-file-earmark-pdf-fill text-2xl"></i>
+        <span>Select PDF File to Edit</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drag &amp; drop your PDF here (processed 100% locally in your browser)</p>
+    </div>
+  </main>
+
+  <!-- Sejda-Style Interactive Visual Editor (Shown once PDF is loaded) -->
+  <section id="editorStage" class="hidden flex-grow flex-col">
+    <!-- Top Floating Action Toolbar -->
+    <div class="editor-toolbar">
+      <button type="button" class="tool-btn active" data-mode="select" title="Select & Move Items">
+        <i class="bi bi-cursor-fill"></i> Select
+      </button>
+      <button type="button" class="tool-btn" data-mode="text" title="Click on page to add text">
+        <i class="bi bi-fonts"></i> Add Text
+      </button>
+      <button type="button" class="tool-btn" data-mode="whiteout" title="Cover existing text with a white box">
+        <i class="bi bi-eraser-fill"></i> Whiteout
+      </button>
+      <button type="button" class="tool-btn" data-mode="highlight" title="Add a yellow highlight strip">
+        <i class="bi bi-highlighter"></i> Highlight
+      </button>
+      <button type="button" id="openSignModalBtn" class="tool-btn" title="Draw & insert signature">
+        <i class="bi bi-pen-fill"></i> Sign
+      </button>
+      <button type="button" id="insertImageBtn" class="tool-btn" title="Insert PNG/JPG image">
+        <i class="bi bi-image"></i> Image
+      </button>
+      <input id="overlayImageInput" type="file" accept="image/png,image/jpeg" hidden>
+
+      <span class="mx-1 h-5 w-px bg-slate-200"></span>
+
+      <!-- Active Text Formatting Controls -->
+      <label class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
+        Size:
+        <select id="textSizeSelect" class="rounded border border-slate-300 bg-white px-1.5 py-1 text-xs">
+          <option value="12">12px</option>
+          <option value="14">14px</option>
+          <option value="16" selected>16px</option>
+          <option value="20">20px</option>
+          <option value="26">26px</option>
+          <option value="34">34px</option>
+        </select>
+      </label>
+
+      <label class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
+        Color:
+        <input id="textColorInput" type="color" value="#0f172a" class="h-6 w-7 cursor-pointer rounded border border-slate-300">
+      </label>
+
+      <span class="mx-1 h-5 w-px bg-slate-200"></span>
+
+      <button type="button" id="zoomOutBtn" class="tool-btn" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+      <span id="zoomLabel" class="text-xs font-bold text-slate-600">125%</span>
+      <button type="button" id="zoomInBtn" class="tool-btn" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+    </div>
+
+    <!-- Split Workspace: Live Document Viewer + Right Inspector -->
+    <div class="studio-layout flex-grow">
+      <div id="pagesContainer" class="studio-canvas"></div>
+
+      <aside class="studio-sidebar">
+        <div class="border-b border-slate-200 pb-3">
+          <h2 class="text-base font-extrabold text-slate-900">Document Inspector</h2>
+          <p id="docFileName" class="mt-0.5 truncate text-xs text-slate-500">document.pdf</p>
+        </div>
+
+        <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">
+          <strong id="modeTipTitle">Tip — Select Mode:</strong>
+          <span id="modeTipBody">Click <b>Add Text</b>, <b>Whiteout</b>, or <b>Sign</b> in the top bar, then click anywhere on your document page.</span>
+        </div>
+
+        <!-- Selected Element Inspector -->
+        <div id="selectedItemPanel" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Selected Element</span>
+            <button type="button" id="deleteSelectedBtn" class="text-xs font-bold text-[#e5322d] hover:underline">
+              <i class="bi bi-trash"></i> Remove
+            </button>
+          </div>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+            <label>
+              Width (px)
+              <input id="itemWidthInput" type="number" class="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1">
+            </label>
+            <label>
+              Height (px)
+              <input id="itemHeightInput" type="number" class="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1">
+            </label>
+          </div>
+        </div>
+
+        <!-- Page Quick Jump List -->
+        <div class="mt-4 flex-grow overflow-y-auto">
+          <p class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Pages (<span id="pageCountLabel">0</span>)</p>
+          <div id="pageJumpList" class="grid grid-cols-3 gap-2"></div>
+        </div>
+
+        <!-- Export Button -->
+        <div class="mt-4 border-t border-slate-200 pt-4">
+          <button type="button" id="exportPdfBtn" class="btn-primary-red w-full text-base">
+            <i class="bi bi-download"></i>
+            <span>Apply &amp; Download PDF</span>
+          </button>
+          <button type="button" id="loadAnotherBtn" class="mt-2 w-full rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            Open Different PDF
+          </button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Signature Pad Modal -->
+  <div id="signModal" class="modal-backdrop-custom hidden">
+    <div class="modal-card-custom">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="text-base font-extrabold text-slate-900">Draw Your Signature</h3>
+        <button type="button" id="closeSignModalBtn" class="text-slate-400 hover:text-slate-700"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">Draw using your mouse or trackpad below, then click Insert Signature.</p>
+      <canvas id="signaturePad" width="430" height="160" class="mt-3 w-full rounded-xl border border-slate-300 bg-slate-50"></canvas>
+      <div class="mt-4 flex items-center justify-between">
+        <button type="button" id="clearSignBtn" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+          Clear
+        </button>
+        <button type="button" id="insertSignBtn" class="rounded-lg bg-[#e5322d] px-4 py-2 text-xs font-bold text-white hover:bg-[#c9221d]">
+          Insert Signature on Page 1
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("edit-pdf");
+
+    let sourceBytes = null;
+    let pdfDoc = null;
+    let fileName = "edited.pdf";
+    let renderScale = 1.25;
+    let activeMode = "select";
+    let items = []; // { id, pageNum, type: 'text'|'whiteout'|'highlight'|'image', xRatio, yRatio, wRatio, hRatio, text, fontSize, color, dataUrl }
+    let selectedId = null;
+    let pageMetas = []; // { pageNum, width, height, pdfWidth, pdfHeight }
+
+    const uploadStage = document.getElementById("uploadStage");
+    const editorStage = document.getElementById("editorStage");
+    const dropZone = document.getElementById("dropZone");
+    const pdfFileInput = document.getElementById("pdfFileInput");
+    const pagesContainer = document.getElementById("pagesContainer");
+    const pageJumpList = document.getElementById("pageJumpList");
+
+    document.getElementById("selectPdfBtn").addEventListener("click", () => pdfFileInput.click());
+    pdfFileInput.addEventListener("change", (e) => e.target.files[0] && openPdf(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      if (e.dataTransfer.files[0]) openPdf(e.dataTransfer.files[0]);
+    });
+
+    document.getElementById("loadAnotherBtn").addEventListener("click", () => {
+      items = [];
+      selectedId = null;
+      editorStage.classList.add("hidden");
+      uploadStage.classList.remove("hidden");
+    });
+
+    // Toolbar Mode Switching
+    const modeTips = {
+      select: ["Select Mode:", "Drag any added text, whiteout box, or signature to reposition it."],
+      text: ["Add Text Mode:", "Click anywhere on a PDF page to place editable text."],
+      whiteout: ["Whiteout Mode:", "Click on a PDF page to place a white cover box over existing text."],
+      highlight: ["Highlight Mode:", "Click on a PDF page to add a translucent yellow highlight bar."]
+    };
+
+    document.querySelectorAll(".tool-btn[data-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeMode = btn.dataset.mode;
+        document.querySelectorAll(".tool-btn[data-mode]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const [title, body] = modeTips[activeMode] || modeTips.select;
+        document.getElementById("modeTipTitle").textContent = title;
+        document.getElementById("modeTipBody").textContent = body;
+      });
+    });
+
+    // Zoom Controls
+    document.getElementById("zoomInBtn").addEventListener("click", async () => {
+      renderScale = Math.min(2.2, +(renderScale + 0.2).toFixed(2));
+      document.getElementById("zoomLabel").textContent = `${Math.round(renderScale * 100)}%`;
+      await renderAllPages();
+    });
+
+    document.getElementById("zoomOutBtn").addEventListener("click", async () => {
+      renderScale = Math.max(0.65, +(renderScale - 0.2).toFixed(2));
+      document.getElementById("zoomLabel").textContent = `${Math.round(renderScale * 100)}%`;
+      await renderAllPages();
+    });
+
+    async function openPdf(file) {
+      fileName = file.name.replace(/\.pdf$/i, "") + "-edited.pdf";
+      document.getElementById("docFileName").textContent = file.name;
+      sourceBytes = await file.arrayBuffer();
+      pdfDoc = await PdfEngine.loadPdfDocument(sourceBytes);
+      document.getElementById("pageCountLabel").textContent = pdfDoc.numPages;
+
+      uploadStage.classList.add("hidden");
+      editorStage.classList.remove("hidden");
+      editorStage.classList.add("flex");
+
+      await renderAllPages();
+    }
+
+    async function renderAllPages() {
+      pagesContainer.innerHTML = "";
+      pageJumpList.innerHTML = "";
+      pageMetas = [];
+
+      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum += 1) {
+        const stage = document.createElement("div");
+        stage.className = "pdf-page-stage";
+        stage.id = `pdf-stage-${pageNum}`;
+
+        const canvas = document.createElement("canvas");
+        const overlay = document.createElement("div");
+        overlay.className = "overlay-layer";
+        overlay.dataset.pageNum = pageNum;
+
+        stage.appendChild(canvas);
+        stage.appendChild(overlay);
+        pagesContainer.appendChild(stage);
+
+        const meta = await PdfEngine.renderPageToCanvas(pdfDoc, pageNum, canvas, renderScale);
+        stage.style.width = `${meta.width}px`;
+        stage.style.height = `${meta.height}px`;
+        pageMetas.push({ pageNum, ...meta });
+
+        // Jump button in sidebar
+        const jumpBtn = document.createElement("button");
+        jumpBtn.type = "button";
+        jumpBtn.className = "rounded-lg border border-slate-200 bg-slate-50 py-1.5 text-xs font-bold text-slate-700 hover:border-red-300 hover:text-[#e5322d]";
+        jumpBtn.textContent = `P.${pageNum}`;
+        jumpBtn.addEventListener("click", () => stage.scrollIntoView({ behavior: "smooth", block: "start" }));
+        pageJumpList.appendChild(jumpBtn);
+
+        overlay.addEventListener("click", (e) => {
+          if (e.target !== overlay) return;
+          const rect = overlay.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          if (activeMode === "text") {
+            addItem({
+              pageNum,
+              type: "text",
+              xRatio: x / meta.width,
+              yRatio: y / meta.height,
+              wRatio: 180 / meta.width,
+              hRatio: 30 / meta.height,
+              text: "Type text here",
+              fontSize: Number(document.getElementById("textSizeSelect").value),
+              color: document.getElementById("textColorInput").value
+            });
+          } else if (activeMode === "whiteout") {
+            addItem({
+              pageNum,
+              type: "whiteout",
+              xRatio: x / meta.width,
+              yRatio: y / meta.height,
+              wRatio: 160 / meta.width,
+              hRatio: 28 / meta.height
+            });
+          } else if (activeMode === "highlight") {
+            addItem({
+              pageNum,
+              type: "highlight",
+              xRatio: x / meta.width,
+              yRatio: y / meta.height,
+              wRatio: 200 / meta.width,
+              hRatio: 20 / meta.height
+            });
+          } else {
+            selectItem(null);
+          }
+        });
+
+        renderOverlaysForPage(pageNum, overlay, meta);
+      }
+    }
+
+    function addItem(payload) {
+      const id = "item-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
+      items.push({ id, ...payload });
+      selectedId = id;
+      refreshPageOverlays(payload.pageNum);
+      syncInspector();
+    }
+
+    function refreshPageOverlays(pageNum) {
+      const stage = document.getElementById(`pdf-stage-${pageNum}`);
+      const meta = pageMetas.find((m) => m.pageNum === pageNum);
+      if (stage && meta) {
+        renderOverlaysForPage(pageNum, stage.querySelector(".overlay-layer"), meta);
+      }
+    }
+
+    function renderOverlaysForPage(pageNum, overlay, meta) {
+      overlay.innerHTML = "";
+      items
+        .filter((it) => it.pageNum === pageNum)
+        .forEach((item) => {
+          const el = document.createElement("div");
+          el.className = "doc-item" + (item.id === selectedId ? " selected" : "");
+          el.style.left = `${item.xRatio * meta.width}px`;
+          el.style.top = `${item.yRatio * meta.height}px`;
+          el.style.width = `${item.wRatio * meta.width}px`;
+          el.style.height = `${item.hRatio * meta.height}px`;
+
+          if (item.type === "whiteout") {
+            el.style.background = "#ffffff";
+            el.style.border = "1px solid #cbd5e1";
+          } else if (item.type === "highlight") {
+            el.style.background = "rgba(250, 204, 21, 0.42)";
+          } else if (item.type === "image") {
+            const img = document.createElement("img");
+            img.src = item.dataUrl;
+            img.style.width = "100%";
+            img.style.height = "100%";
+            img.style.objectFit = "contain";
+            img.draggable = false;
+            el.appendChild(img);
+          } else if (item.type === "text") {
+            const editable = document.createElement("div");
+            editable.className = "doc-item-text";
+            editable.contentEditable = "true";
+            editable.textContent = item.text;
+            editable.style.fontSize = `${item.fontSize * (renderScale / 1.25)}px`;
+            editable.style.color = item.color;
+            editable.addEventListener("input", () => {
+              item.text = editable.textContent;
+            });
+            el.appendChild(editable);
+          }
+
+          // Delete button
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "doc-item-delete";
+          delBtn.innerHTML = "&times;";
+          delBtn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            items = items.filter((x) => x.id !== item.id);
+            if (selectedId === item.id) selectedId = null;
+            refreshPageOverlays(pageNum);
+            syncInspector();
+          });
+          el.appendChild(delBtn);
+
+          // Drag to move
+          el.addEventListener("mousedown", (ev) => {
+            if (ev.target === delBtn) return;
+            selectItem(item.id);
+            const startX = ev.clientX;
+            const startY = ev.clientY;
+            const origX = item.xRatio * meta.width;
+            const origY = item.yRatio * meta.height;
+
+            const onMove = (moveEv) => {
+              const nx = Math.max(0, Math.min(meta.width - 20, origX + (moveEv.clientX - startX)));
+              const ny = Math.max(0, Math.min(meta.height - 15, origY + (moveEv.clientY - startY)));
+              item.xRatio = nx / meta.width;
+              item.yRatio = ny / meta.height;
+              el.style.left = `${nx}px`;
+              el.style.top = `${ny}px`;
+            };
+
+            const onUp = () => {
+              window.removeEventListener("mousemove", onMove);
+              window.removeEventListener("mouseup", onUp);
+            };
+            window.addEventListener("mousemove", onMove);
+            window.addEventListener("mouseup", onUp);
+          });
+
+          overlay.appendChild(el);
+        });
+    }
+
+    function selectItem(id) {
+      selectedId = id;
+      pageMetas.forEach((m) => refreshPageOverlays(m.pageNum));
+      syncInspector();
+    }
+
+    function syncInspector() {
+      const panel = document.getElementById("selectedItemPanel");
+      const item = items.find((x) => x.id === selectedId);
+      if (!item) {
+        panel.classList.add("hidden");
+        return;
+      }
+      const meta = pageMetas.find((m) => m.pageNum === item.pageNum);
+      panel.classList.remove("hidden");
+      document.getElementById("itemWidthInput").value = Math.round(item.wRatio * meta.width);
+      document.getElementById("itemHeightInput").value = Math.round(item.hRatio * meta.height);
+    }
+
+    document.getElementById("itemWidthInput").addEventListener("change", (e) => {
+      const item = items.find((x) => x.id === selectedId);
+      const meta = item && pageMetas.find((m) => m.pageNum === item.pageNum);
+      if (item && meta) {
+        item.wRatio = Math.max(20, Number(e.target.value)) / meta.width;
+        refreshPageOverlays(item.pageNum);
+      }
+    });
+
+    document.getElementById("itemHeightInput").addEventListener("change", (e) => {
+      const item = items.find((x) => x.id === selectedId);
+      const meta = item && pageMetas.find((m) => m.pageNum === item.pageNum);
+      if (item && meta) {
+        item.hRatio = Math.max(12, Number(e.target.value)) / meta.height;
+        refreshPageOverlays(item.pageNum);
+      }
+    });
+
+    document.getElementById("deleteSelectedBtn").addEventListener("click", () => {
+      const item = items.find((x) => x.id === selectedId);
+      if (!item) return;
+      items = items.filter((x) => x.id !== selectedId);
+      selectedId = null;
+      refreshPageOverlays(item.pageNum);
+      syncInspector();
+    });
+
+    // Insert Image
+    const overlayImageInput = document.getElementById("overlayImageInput");
+    document.getElementById("insertImageBtn").addEventListener("click", () => overlayImageInput.click());
+    overlayImageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        addItem({
+          pageNum: 1,
+          type: "image",
+          xRatio: 0.12,
+          yRatio: 0.12,
+          wRatio: 0.25,
+          hRatio: 0.14,
+          dataUrl: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+    });
+
+    // Signature Modal
+    const signModal = document.getElementById("signModal");
+    const sigPad = document.getElementById("signaturePad");
+    const sigCtx = sigPad.getContext("2d");
+    sigCtx.lineWidth = 2.6;
+    sigCtx.lineCap = "round";
+    sigCtx.strokeStyle = "#0f172a";
+    let drawing = false;
+
+    document.getElementById("openSignModalBtn").addEventListener("click", () => signModal.classList.remove("hidden"));
+    document.getElementById("closeSignModalBtn").addEventListener("click", () => signModal.classList.add("hidden"));
+    document.getElementById("clearSignBtn").addEventListener("click", () => sigCtx.clearRect(0, 0, sigPad.width, sigPad.height));
+
+    sigPad.addEventListener("mousedown", (e) => {
+      drawing = true;
+      sigCtx.beginPath();
+      sigCtx.moveTo(e.offsetX, e.offsetY);
+    });
+    sigPad.addEventListener("mousemove", (e) => {
+      if (!drawing) return;
+      sigCtx.lineTo(e.offsetX, e.offsetY);
+      sigCtx.stroke();
+    });
+    window.addEventListener("mouseup", () => { drawing = false; });
+
+    document.getElementById("insertSignBtn").addEventListener("click", () => {
+      const dataUrl = sigPad.toDataURL("image/png");
+      addItem({
+        pageNum: 1,
+        type: "image",
+        xRatio: 0.15,
+        yRatio: 0.72,
+        wRatio: 0.28,
+        hRatio: 0.1,
+        dataUrl
+      });
+      signModal.classList.add("hidden");
+    });
+
+    // Burn all edits into PDF via pdf-lib & Download
+    document.getElementById("exportPdfBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("exportPdfBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<span>Saving PDF...</span>`;
+
+      try {
+        const outDoc = await window.PDFLib.PDFDocument.load(sourceBytes.slice(0));
+        const font = await outDoc.embedFont(window.PDFLib.StandardFonts.Helvetica);
+        const pages = outDoc.getPages();
+
+        for (const item of items) {
+          const page = pages[item.pageNum - 1];
+          if (!page) continue;
+          const { width, height } = page.getSize();
+
+          const x = item.xRatio * width;
+          const w = item.wRatio * width;
+          const h = item.hRatio * height;
+          const yTop = item.yRatio * height;
+          const yBottom = height - yTop - h;
+
+          if (item.type === "whiteout") {
+            page.drawRectangle({
+              x,
+              y: yBottom,
+              width: w,
+              height: h,
+              color: window.PDFLib.rgb(1, 1, 1)
+            });
+          } else if (item.type === "highlight") {
+            page.drawRectangle({
+              x,
+              y: yBottom,
+              width: w,
+              height: h,
+              color: window.PDFLib.rgb(0.98, 0.8, 0.08),
+              opacity: 0.42
+            });
+          } else if (item.type === "text" && item.text) {
+            const { r, g, b } = PdfEngine.hexToRgbNormalized(item.color);
+            const size = (item.fontSize || 16) * 0.78;
+            page.drawText(item.text, {
+              x: x + 2,
+              y: height - yTop - size - 2,
+              size,
+              font,
+              color: window.PDFLib.rgb(r, g, b)
+            });
+          } else if (item.type === "image" && item.dataUrl) {
+            const imgBytes = await fetch(item.dataUrl).then((r) => r.arrayBuffer());
+            const embedded = item.dataUrl.startsWith("data:image/jpeg")
+              ? await outDoc.embedJpg(imgBytes)
+              : await outDoc.embedPng(imgBytes);
+            page.drawImage(embedded, { x, y: yBottom, width: w, height: h });
+          }
+        }
+
+        const savedBytes = await outDoc.save();
+        PdfEngine.downloadBytes(savedBytes, fileName);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-download"></i><span>Apply &amp; Download PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

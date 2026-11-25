@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Petrovest PDF — Free Visual Online PDF Editor &amp; Tools</title>
+  <meta name="description" content="Edit, sign, merge, split, organize, rotate, watermark, and convert PDFs visually in your browser for free.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main class="flex-grow">
+    <!-- Hero -->
+    <section class="border-b border-slate-200 bg-white px-4 pb-10 pt-12 text-center sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-3xl">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-[#e5322d]">
+          <i class="bi bi-shield-check"></i> 100% Private Browser Processing • Live Visual Document GUI
+        </span>
+        <h1 class="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+          Every PDF tool you need, with live visual editing.
+        </h1>
+        <p class="mt-3 text-base text-slate-600 sm:text-lg">
+          Edit text, whiteout content, sign documents, reorder pages, merge, split, and convert — see every change on your document in real time.
+        </p>
+
+        <!-- Search -->
+        <div class="mx-auto mt-6 max-w-lg">
+          <div class="relative">
+            <i class="bi bi-search pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input
+              id="searchTools"
+              type="search"
+              placeholder="Search tools (Edit PDF, Sign, Whiteout, Merge, Split, Rotate)..."
+              class="w-full rounded-full border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm focus:border-[#e5322d] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20"
+            >
+          </div>
+        </div>
+
+        <!-- Category Tabs -->
+        <div id="categoryTabs" class="mt-6 flex flex-wrap items-center justify-center gap-2"></div>
+      </div>
+    </section>
+
+    <!-- Tools Grid -->
+    <section id="tools" class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div id="toolsGrid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"></div>
+    </section>
+  </main>
+
+  <div id="app-footer"></div>
+
+  <script src="/assets/js/site-config.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome();
+
+    const tabsEl = document.getElementById("categoryTabs");
+    const gridEl = document.getElementById("toolsGrid");
+    const searchEl = document.getElementById("searchTools");
+    let activeCat = "all";
+
+    function renderTabs() {
+      tabsEl.innerHTML = SITE_CONFIG.CATEGORIES.map((cat) => {
+        const isActive = cat.id === activeCat;
+        return `
+          <button type="button" data-cat="${cat.id}" class="rounded-full px-4 py-1.5 text-xs font-bold transition ${
+            isActive
+              ? "bg-slate-900 text-white shadow-xs"
+              : "border border-slate-200 bg-white text-slate-700 hover:border-red-300 hover:text-[#e5322d]"
+          }">${cat.label}</button>
+        `;
+      }).join("");
+
+      tabsEl.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeCat = btn.dataset.cat;
+          renderTabs();
+          renderTools();
+        });
+      });
+    }
+
+    function renderTools() {
+      const q = (searchEl.value || "").trim().toLowerCase();
+      const filtered = SITE_CONFIG.TOOLS.filter((tool) => {
+        const matchCat = activeCat === "all" || tool.category === activeCat;
+        const matchQ = !q || `${tool.title} ${tool.description} ${tool.badge}`.toLowerCase().includes(q);
+        return matchCat && matchQ;
+      });
+
+      gridEl.innerHTML = filtered
+        .map(
+          (tool) => `
+        <a href="${tool.url}" class="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-xs transition duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg">
+          <div>
+            <div class="mb-4 flex items-center justify-between">
+              <span class="flex h-12 w-12 items-center justify-center rounded-xl border ${tool.color} transition-transform group-hover:scale-105">
+                <i class="bi ${tool.icon} text-2xl"></i>
+              </span>
+              <span class="rounded-md bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">${tool.badge}</span>
+            </div>
+            <h2 class="text-lg font-bold text-slate-900 group-hover:text-[#e5322d]">${tool.title}</h2>
+            <p class="mt-2 text-sm leading-relaxed text-slate-600">${tool.description}</p>
+          </div>
+          <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-bold text-slate-400 group-hover:text-[#e5322d]">
+            <span>${tool.accept.toUpperCase()}</span>
+            <span>Open Tool &rarr;</span>
+          </div>
+        </a>
+      `
+        )
+        .join("");
+    }
+
+    searchEl.addEventListener("input", renderTools);
+    renderTabs();
+    renderTools();
+  </script>
+</body>
+</html>

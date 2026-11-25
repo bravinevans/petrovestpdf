@@ -5,11 +5,16 @@ window.SITE_CONFIG = {
     fullName: "Petrovest PDF",
     tagline: "All-in-One Visual PDF Suite",
     domain: "petrovest.top",
-    footerNote: "100% browser-based PDF tools. Your files stay private on your device — zero uploads, zero paywalls."
+    footerNote: "100% private PDF & Office suite. Core PDF tools run locally in your browser."
+  },
+
+  API: {
+    // Paste your Render worker URL here (e.g. "https://petrovestpdf-worker.onrender.com")
+    baseUrl: ""
   },
 
   CATEGORIES: [
-    { id: "all", label: "All Tools" },
+    { id: "all", label: "All Tools (17)" },
     { id: "edit", label: "Edit & Sign" },
     { id: "organize", label: "Organize PDF" },
     { id: "optimize", label: "Optimize" },
@@ -21,7 +26,7 @@ window.SITE_CONFIG = {
       key: "edit-pdf",
       title: "Edit PDF",
       category: "edit",
-      badge: "Sejda-Style",
+      badge: "Visual Editor",
       icon: "bi-pencil-square",
       color: "bg-red-50 text-[#e5322d] border-red-200",
       description: "Add text, whiteout existing content, draw signatures, insert images, and highlight directly on your PDF pages.",
@@ -117,6 +122,50 @@ window.SITE_CONFIG = {
       accept: ".pdf"
     },
     {
+      key: "pptx-to-pdf",
+      title: "PowerPoint to PDF",
+      category: "convert",
+      badge: "To PDF",
+      icon: "bi-filetype-pptx",
+      color: "bg-orange-50 text-orange-600 border-orange-200",
+      description: "Convert PPTX and PPT presentations to crisp PDF documents with slide preview.",
+      url: "/tools/pptx-to-pdf.html",
+      accept: ".pptx,.ppt"
+    },
+    {
+      key: "excel-to-pdf",
+      title: "Excel to PDF",
+      category: "convert",
+      badge: "To PDF",
+      icon: "bi-filetype-xlsx",
+      color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+      description: "Convert XLSX, XLS, and CSV spreadsheets to formatted PDF tables with live sheet preview.",
+      url: "/tools/excel-to-pdf.html",
+      accept: ".xlsx,.xls,.csv"
+    },
+    {
+      key: "word-to-pdf",
+      title: "Word to PDF",
+      category: "convert",
+      badge: "To PDF",
+      icon: "bi-filetype-docx",
+      color: "bg-blue-50 text-blue-600 border-blue-200",
+      description: "Convert DOCX and DOC Word documents to clean PDFs with live document preview.",
+      url: "/tools/word-to-pdf.html",
+      accept: ".docx,.doc"
+    },
+    {
+      key: "pdf-to-word",
+      title: "PDF to Word",
+      category: "convert",
+      badge: "From PDF",
+      icon: "bi-file-earmark-word",
+      color: "bg-blue-50 text-blue-600 border-blue-200",
+      description: "Turn PDF files into editable Microsoft Word (.docx) documents in seconds.",
+      url: "/tools/pdf-to-word.html",
+      accept: ".pdf"
+    },
+    {
       key: "jpg-to-pdf",
       title: "JPG / PNG to PDF",
       category: "convert",
@@ -139,6 +188,17 @@ window.SITE_CONFIG = {
       accept: ".pdf"
     },
     {
+      key: "html-to-pdf",
+      title: "HTML to PDF",
+      category: "convert",
+      badge: "To PDF",
+      icon: "bi-filetype-html",
+      color: "bg-indigo-50 text-indigo-600 border-indigo-200",
+      description: "Write or paste HTML code with live visual preview and export directly to PDF.",
+      url: "/tools/html-to-pdf.html",
+      accept: ".html,.htm"
+    },
+    {
       key: "pdf-to-text",
       title: "PDF to Text",
       category: "convert",
@@ -155,9 +215,18 @@ window.SITE_CONFIG = {
     const { BRAND, TOOLS } = this;
     document.title = document.title.replace(/Petrovest PDF/g, BRAND.fullName);
 
+    // Automatically inject SVG favicon on every page
+    if (!document.querySelector('link[rel="icon"]')) {
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.type = "image/svg+xml";
+      link.href = "/favicon.svg";
+      document.head.appendChild(link);
+    }
+
     const headerEl = document.getElementById("app-header");
     if (headerEl) {
-      const quickLinks = ["edit-pdf", "merge-pdf", "split-pdf", "compress-pdf"]
+      const quickLinks = ["edit-pdf", "merge-pdf", "split-pdf", "pptx-to-pdf", "word-to-pdf"]
         .map((k) => TOOLS.find((t) => t.key === k))
         .filter(Boolean);
 
@@ -176,11 +245,11 @@ window.SITE_CONFIG = {
               </span>
             </a>
 
-            <nav class="hidden items-center gap-1 md:flex" aria-label="Main navigation">
+            <nav class="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
               ${quickLinks
                 .map(
                   (t) => `
-                <a href="${t.url}" class="rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wide transition ${
+                <a href="${t.url}" class="rounded-lg px-2.5 py-2 text-xs font-bold uppercase tracking-wide transition ${
                   activeKey === t.key ? "bg-red-50 text-[#e5322d]" : "text-slate-700 hover:bg-red-50 hover:text-[#e5322d]"
                 }">${t.title}</a>`
                 )
@@ -209,8 +278,8 @@ window.SITE_CONFIG = {
             <div class="flex items-center gap-4 font-semibold">
               <a href="/index.html" class="hover:text-[#e5322d]">Home</a>
               <a href="/tools/edit-pdf.html" class="hover:text-[#e5322d]">Edit PDF</a>
-              <a href="/tools/merge-pdf.html" class="hover:text-[#e5322d]">Merge</a>
-              <a href="/tools/split-pdf.html" class="hover:text-[#e5322d]">Split</a>
+              <a href="/tools/pptx-to-pdf.html" class="hover:text-[#e5322d]">PPTX to PDF</a>
+              <a href="/tools/word-to-pdf.html" class="hover:text-[#e5322d]">Word to PDF</a>
             </div>
           </div>
         </footer>

@@ -222,6 +222,53 @@ window.SITE_CONFIG = {
       document.head.appendChild(link);
     }
 
+    // Automatic SEO: Canonical URL, Open Graph tags & JSON-LD Schema
+    const activeTool = activeKey ? TOOLS.find((t) => t.key === activeKey) : null;
+    const canonicalUrl = `https://${BRAND.domain}${activeTool ? activeTool.url : "/"}`;
+    const pageDesc =
+      document.querySelector('meta[name="description"]')?.content ||
+      (activeTool ? activeTool.description : BRAND.footerNote);
+
+    if (!document.querySelector('link[rel="canonical"]')) {
+      const canon = document.createElement("link");
+      canon.rel = "canonical";
+      canon.href = canonicalUrl;
+      document.head.appendChild(canon);
+    }
+
+    const ogTags = {
+      "og:type": "website",
+      "og:site_name": BRAND.fullName,
+      "og:title": document.title,
+      "og:description": pageDesc,
+      "og:url": canonicalUrl,
+      "twitter:card": "summary"
+    };
+    Object.entries(ogTags).forEach(([prop, content]) => {
+      if (!document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`)) {
+        const m = document.createElement("meta");
+        m.setAttribute(prop.startsWith("twitter:") ? "name" : "property", prop);
+        m.content = content;
+        document.head.appendChild(m);
+      }
+    });
+
+    if (!document.querySelector('script[type="application/ld+json"]')) {
+      const ld = document.createElement("script");
+      ld.type = "application/ld+json";
+      ld.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        name: activeTool ? `${activeTool.title} — ${BRAND.fullName}` : BRAND.fullName,
+        url: canonicalUrl,
+        applicationCategory: "UtilitiesApplication",
+        operatingSystem: "Any",
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        description: pageDesc
+      });
+      document.head.appendChild(ld);
+    }
+
     const headerEl = document.getElementById("app-header");
     if (headerEl) {
       const quickLinks = ["edit-pdf", "merge-pdf", "split-pdf", "pptx-to-pdf", "word-to-pdf"]

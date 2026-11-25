@@ -1,6 +1,6 @@
 # Petrovest PDF
 
-All-in-one visual PDF editor, document converter, and PDF security suite built on a zero-latency split-compute architecture[cite: 1].
+All-in-one visual PDF editor, document converter, and PDF security suite built on a zero-latency split-compute architecture.
 
 ![Petrovest PDF Interface](assets/Screenshot.png)
 

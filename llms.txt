@@ -1,8 +1,9 @@
 # Petrovest PDF
-> Free, privacy-first online visual PDF editor and Office-to-PDF conversion suite at https://petrovest.top.
+> Free, privacy-first online visual PDF editor, Office-to-PDF conversion, and PDF security suite at https://petrovest.top.
 
 ## Core Capabilities
 - **Visual PDF Editor** (`/tools/edit-pdf.html`): Add text, whiteout content, draw signatures, insert images, and highlight pages directly in the browser.
 - **Organize & Page Tools**: Merge PDF (`/tools/merge-pdf.html`), Split PDF (`/tools/split-pdf.html`), Organize PDF (`/tools/organize-pdf.html`), Rotate PDF (`/tools/rotate-pdf.html`), Delete PDF Pages (`/tools/delete-pages.html`).
 - **Stamping & Optimization**: Add Page Numbers (`/tools/page-numbers.html`), Watermark PDF (`/tools/watermark-pdf.html`), Compress PDF (`/tools/compress-pdf.html`).
 - **Office & Document Conversions**: PowerPoint to PDF (`/tools/pptx-to-pdf.html`), Excel to PDF (`/tools/excel-to-pdf.html`), Word to PDF (`/tools/word-to-pdf.html`), PDF to Word (`/tools/pdf-to-word.html`), JPG/PNG to PDF (`/tools/jpg-to-pdf.html`), PDF to JPG (`/tools/pdf-to-jpg.html`), HTML to PDF (`/tools/html-to-pdf.html`), PDF to Text (`/tools/pdf-to-text.html`).
+- **PDF Security**: Protect PDF (`/tools/protect-pdf.html`) with AES-256 password encryption and print/copy permission controls; Unlock PDF (`/tools/unlock-pdf.html`) to remove password and permission restrictions.

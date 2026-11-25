@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Merge PDF Files Online Free — Visual PDF Combiner | Petrovest PDF</title>
+  <meta name="description" content="Combine multiple PDF files in the exact visual order you want. Drag and drop PDFs, preview cover pages, and merge instantly in your browser.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <!-- Upload Stage -->
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Merge PDF Files</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Combine PDFs in the order you want with live cover thumbnails and drag-and-drop sorting.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".pdf,application/pdf" multiple hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-files text-2xl"></i>
+        <span>Select PDF Files</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drop multiple PDF files here</p>
+    </div>
+  </main>
+
+  <!-- Workspace Stage -->
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div id="canvasDrop" class="studio-canvas relative">
+      <div class="mb-4 flex w-full max-w-5xl items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Drag cards to reorder • <span id="fileCountLabel">0</span> files (<span id="totalPagesLabel">0</span> pages total)
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="sortAzBtn" class="tool-btn"><i class="bi bi-sort-alpha-down"></i> Sort A–Z</button>
+          <button type="button" id="addMoreBtn" class="tool-btn border-red-200 bg-red-50 text-[#e5322d]">
+            <i class="bi bi-plus-lg"></i> Add PDFs
+          </button>
+        </div>
+      </div>
+
+      <div id="filesGrid" class="grid w-full max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Merge PDF</h2>
+        <p class="mt-0.5 text-xs text-slate-500">Arrange documents in your desired sequence</p>
+      </div>
+
+      <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">
+        <i class="bi bi-info-circle-fill mr-1 text-blue-600"></i>
+        Drag and drop PDF cards on the left to change their order. You can also rotate individual files before merging.
+      </div>
+
+      <div class="mt-4">
+        <label class="block text-xs font-bold text-slate-700">Output File Name</label>
+        <input id="outputNameInput" type="text" value="merged-document.pdf" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium">
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="mergeActionBtn" class="btn-primary-red w-full text-base" disabled>
+          <i class="bi bi-files"></i>
+          <span>Merge PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.4/Sortable.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("merge-pdf");
+
+    let items = []; // { id, name, bytes, pageCount, previewUrl, rotation }
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const filesGrid = document.getElementById("filesGrid");
+    const mergeBtn = document.getElementById("mergeActionBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    document.getElementById("addMoreBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      addFiles(e.target.files);
+      e.target.value = "";
+    });
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      addFiles(e.dataTransfer.files);
+    });
+
+    Sortable.create(filesGrid, {
+      animation: 150,
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const [moved] = items.splice(evt.oldIndex, 1);
+        items.splice(evt.newIndex, 0, moved);
+        renderGrid();
+      }
+    });
+
+    document.getElementById("sortAzBtn").addEventListener("click", () => {
+      items.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      renderGrid();
+    });
+
+    async function addFiles(fileList) {
+      const pdfs = Array.from(fileList || []).filter((f) => f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf");
+      if (!pdfs.length) return;
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+
+      for (const file of pdfs) {
+        const bytes = await file.arrayBuffer();
+        const doc = await PdfEngine.loadPdfDocument(bytes);
+        const canvas = document.createElement("canvas");
+        await PdfEngine.renderPageToCanvas(doc, 1, canvas, 0.55);
+
+        items.push({
+          id: "f-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+          name: file.name,
+          bytes,
+          pageCount: doc.numPages,
+          previewUrl: canvas.toDataURL("image/jpeg", 0.85),
+          rotation: 0
+        });
+      }
+
+      renderGrid();
+    }
+
+    function renderGrid() {
+      document.getElementById("fileCountLabel").textContent = items.length;
+      document.getElementById("totalPagesLabel").textContent = items.reduce((sum, f) => sum + f.pageCount, 0);
+      mergeBtn.disabled = items.length < 2;
+
+      filesGrid.innerHTML = items
+        .map(
+          (item, idx) => `
+        <div class="group relative flex flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-xs transition hover:border-slate-300 hover:shadow-md cursor-grab">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">#${idx + 1} • ${item.pageCount} pg</span>
+            <div class="flex items-center gap-1">
+              <button type="button" data-rot="${idx}" class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-700 hover:bg-slate-900 hover:text-white" title="Rotate 90°">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+              <button type="button" data-del="${idx}" class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-700 hover:bg-[#e5322d] hover:text-white" title="Remove">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex h-48 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 p-2">
+            <img src="${item.previewUrl}" alt="${item.name}" class="max-h-full max-w-full rounded shadow-xs transition-transform" style="transform: rotate(${item.rotation}deg)">
+          </div>
+          <p class="mt-2.5 truncate text-center text-xs font-bold text-slate-800" title="${item.name}">${item.name}</p>
+        </div>
+      `
+        )
+        .join("");
+
+      filesGrid.querySelectorAll("[data-rot]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const i = Number(btn.dataset.rot);
+          items[i].rotation = (items[i].rotation + 90) % 360;
+          renderGrid();
+        });
+      });
+
+      filesGrid.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          items.splice(Number(btn.dataset.del), 1);
+          if (!items.length) {
+            document.getElementById("workspaceStage").classList.add("hidden");
+            document.getElementById("uploadStage").classList.remove("hidden");
+          } else {
+            renderGrid();
+          }
+        });
+      });
+    }
+
+    mergeBtn.addEventListener("click", async () => {
+      if (items.length < 2) return;
+      mergeBtn.disabled = true;
+      mergeBtn.innerHTML = `<span>Merging PDFs...</span>`;
+
+      try {
+        const mergedPdf = await window.PDFLib.PDFDocument.create();
+
+        for (const item of items) {
+          const src = await window.PDFLib.PDFDocument.load(item.bytes.slice(0));
+          const copied = await mergedPdf.copyPages(src, src.getPageIndices());
+          copied.forEach((page) => {
+            if (item.rotation) {
+              const cur = page.getRotation()?.angle || 0;
+              page.setRotation(window.PDFLib.degrees((cur + item.rotation) % 360));
+            }
+            mergedPdf.addPage(page);
+          });
+        }
+
+        const outBytes = await mergedPdf.save();
+        let outName = (document.getElementById("outputNameInput").value || "merged-document.pdf").trim();
+        if (!outName.toLowerCase().endsWith(".pdf")) outName += ".pdf";
+        PdfEngine.downloadBytes(outBytes, outName);
+      } finally {
+        mergeBtn.disabled = false;
+        mergeBtn.innerHTML = `<i class="bi bi-files"></i><span>Merge PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

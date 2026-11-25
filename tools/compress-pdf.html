@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compress PDF Online Free — Reduce PDF File Size | Petrovest PDF</title>
+  <meta name="description" content="Optimize and shrink PDF file size directly in your browser with adjustable DPI and JPEG compression levels.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Compress PDF</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Reduce PDF file size right in your browser while balancing visual clarity and readability.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-arrows-angle-contract text-2xl"></i>
+        <span>Select PDF File</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drop a PDF file here</p>
+    </div>
+  </main>
+
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div class="studio-canvas justify-center">
+      <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+        <div class="mx-auto flex h-64 w-48 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 p-2">
+          <img id="coverPreview" src="" alt="PDF Cover" class="max-h-full max-w-full rounded shadow-xs">
+        </div>
+        <h3 id="docNameLabel" class="mt-3 truncate text-sm font-extrabold text-slate-900">document.pdf</h3>
+        <p class="mt-1 text-xs text-slate-500">
+          Original Size: <strong id="origSizeLabel" class="text-slate-800">0 KB</strong> • <span id="pageCountLabel">0</span> pages
+        </p>
+
+        <div id="resultBanner" class="mt-4 hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+          <p class="font-extrabold">Compression Complete!</p>
+          <p class="mt-1">New Size: <strong id="newSizeLabel">0 KB</strong> (<span id="savedPctLabel" class="font-bold text-emerald-700">0%</span> smaller)</p>
+        </div>
+      </div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Compression Level</h2>
+        <p class="mt-0.5 text-xs text-slate-500">Choose quality vs. file size reduction</p>
+      </div>
+
+      <div class="mt-4 space-y-2.5 text-xs" id="levelOptions">
+        <button type="button" data-level="extreme" class="level-card w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-red-300">
+          <div class="font-extrabold text-slate-900">Extreme Compression</div>
+          <div class="mt-0.5 text-slate-500">Smallest file size (96 DPI, 55% JPEG quality) — best for email.</div>
+        </button>
+        <button type="button" data-level="recommended" class="level-card w-full rounded-xl border-2 border-[#e5322d] bg-red-50/60 p-3 text-left transition">
+          <div class="font-extrabold text-[#e5322d]">Recommended Compression</div>
+          <div class="mt-0.5 text-slate-600">Balanced size and crisp readability (130 DPI, 72% quality).</div>
+        </button>
+        <button type="button" data-level="less" class="level-card w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-red-300">
+          <div class="font-extrabold text-slate-900">Light Compression</div>
+          <div class="mt-0.5 text-slate-500">High clarity (175 DPI, 85% quality) — preserves fine details.</div>
+        </button>
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="compressBtn" class="btn-primary-red w-full text-base">
+          <i class="bi bi-arrows-angle-contract"></i>
+          <span>Compress &amp; Download PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("compress-pdf");
+
+    let sourceBytes = null;
+    let baseName = "document";
+    let selectedLevel = "recommended";
+
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const compressBtn = document.getElementById("compressBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => e.target.files[0] && loadPdf(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      if (e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+    });
+
+    document.querySelectorAll(".level-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        selectedLevel = card.dataset.level;
+        document.querySelectorAll(".level-card").forEach((c) => {
+          c.classList.remove("border-2", "border-[#e5322d]", "bg-red-50/60");
+          c.classList.add("border", "border-slate-200", "bg-white");
+        });
+        card.classList.remove("border", "border-slate-200", "bg-white");
+        card.classList.add("border-2", "border-[#e5322d]", "bg-red-50/60");
+      });
+    });
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    async function loadPdf(file) {
+      baseName = file.name.replace(/\.pdf$/i, "");
+      sourceBytes = await file.arrayBuffer();
+      const doc = await PdfEngine.loadPdfDocument(sourceBytes);
+
+      document.getElementById("docNameLabel").textContent = file.name;
+      document.getElementById("origSizeLabel").textContent = formatBytes(sourceBytes.byteLength);
+      document.getElementById("pageCountLabel").textContent = doc.numPages;
+      document.getElementById("resultBanner").classList.add("hidden");
+
+      const canvas = document.createElement("canvas");
+      await PdfEngine.renderPageToCanvas(doc, 1, canvas, 0.7);
+      document.getElementById("coverPreview").src = canvas.toDataURL("image/jpeg", 0.85);
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+    }
+
+    compressBtn.addEventListener("click", async () => {
+      if (!sourceBytes) return;
+      compressBtn.disabled = true;
+      compressBtn.innerHTML = `<span>Optimizing Pages...</span>`;
+
+      try {
+        const presets = {
+          extreme: { scale: 1.15, quality: 0.52 },
+          recommended: { scale: 1.45, quality: 0.70 },
+          less: { scale: 1.85, quality: 0.84 }
+        };
+        const { scale, quality } = presets[selectedLevel] || presets.recommended;
+        const doc = await PdfEngine.loadPdfDocument(sourceBytes);
+        let outPdf = null;
+
+        for (let i = 1; i <= doc.numPages; i += 1) {
+          const canvas = document.createElement("canvas");
+          const meta = await PdfEngine.renderPageToCanvas(doc, i, canvas, scale);
+          const imgData = canvas.toDataURL("image/jpeg", quality);
+          const wMm = meta.pdfWidth * 0.352778;
+          const hMm = meta.pdfHeight * 0.352778;
+          const orient = wMm > hMm ? "l" : "p";
+
+          if (!outPdf) {
+            outPdf = new window.jspdf.jsPDF({ orientation: orient, unit: "mm", format: [wMm, hMm], compress: true });
+          } else {
+            outPdf.addPage([wMm, hMm], orient);
+          }
+          outPdf.addImage(imgData, "JPEG", 0, 0, wMm, hMm, undefined, "FAST");
+        }
+
+        const outBuffer = outPdf.output("arraybuffer");
+        const finalBytes = outBuffer.byteLength < sourceBytes.byteLength ? outBuffer : sourceBytes;
+        const savedPct = Math.max(0, Math.round((1 - finalBytes.byteLength / sourceBytes.byteLength) * 100));
+
+        document.getElementById("newSizeLabel").textContent = formatBytes(finalBytes.byteLength);
+        document.getElementById("savedPctLabel").textContent = `${savedPct}%`;
+        document.getElementById("resultBanner").classList.remove("hidden");
+
+        PdfEngine.downloadBytes(finalBytes, `${baseName}-compressed.pdf`);
+      } finally {
+        compressBtn.disabled = false;
+        compressBtn.innerHTML = `<i class="bi bi-arrows-angle-contract"></i><span>Compress &amp; Download PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

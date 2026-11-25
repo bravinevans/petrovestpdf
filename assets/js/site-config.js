@@ -9,8 +9,7 @@ window.SITE_CONFIG = {
   },
 
   API: {
-    // Paste your Render worker URL here (e.g. "https://petrovestpdf-worker.onrender.com")
-    baseUrl: ""
+    baseUrl: "https://petrovestpdf-worker.onrender.com"
   },
 
   CATEGORIES: [
@@ -215,7 +214,6 @@ window.SITE_CONFIG = {
     const { BRAND, TOOLS } = this;
     document.title = document.title.replace(/Petrovest PDF/g, BRAND.fullName);
 
-    // Automatically inject SVG favicon on every page
     if (!document.querySelector('link[rel="icon"]')) {
       const link = document.createElement("link");
       link.rel = "icon";

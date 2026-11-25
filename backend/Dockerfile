@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-calc \
     libreoffice-impress \
     ghostscript \
+    qpdf \
     fonts-dejavu \
     fonts-liberation \
     fonts-noto-core \

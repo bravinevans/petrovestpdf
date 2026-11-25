@@ -49,5 +49,21 @@ window.PdfEngine = {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
+  },
+
+  async convertViaWorker(endpoint, file, onStatus) {
+    const base = (window.SITE_CONFIG?.API?.baseUrl || "").replace(/\/+$/, "");
+    if (!base) return null;
+
+    if (onStatus) onStatus("Uploading to conversion engine (first request may take ~30s to wake server)...");
+    const form = new FormData();
+    form.append("file", file);
+
+    const res = await fetch(`${base}${endpoint}`, { method: "POST", body: form });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText);
+      throw new Error(errText || `Server error ${res.status}`);
+    }
+    return res.arrayBuffer();
   }
 };

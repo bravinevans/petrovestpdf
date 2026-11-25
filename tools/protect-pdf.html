@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Protect PDF Online Free — Password Encrypt PDF (AES-256) | Petrovest PDF</title>
+  <meta name="description" content="Encrypt your PDF file with strong AES-256 password protection and control print and copy permissions.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Protect PDF</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Lock your PDF document with a strong AES-256 password and restrict unauthorized printing or copying.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-shield-lock-fill text-2xl"></i>
+        <span>Select PDF File</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drop a PDF file here</p>
+    </div>
+  </main>
+
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div class="studio-canvas justify-center">
+      <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div class="mx-auto flex h-64 w-48 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 p-2">
+          <img id="coverPreview" src="" alt="PDF Cover" class="max-h-full max-w-full rounded shadow-xs">
+        </div>
+        <h3 id="docNameLabel" class="mt-3 truncate text-sm font-extrabold text-slate-900">document.pdf</h3>
+        <p class="mt-1 text-xs text-slate-500"><span id="pageCountLabel">0</span> pages • Ready for AES-256 encryption</p>
+      </div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Security Settings</h2>
+        <p class="mt-0.5 text-xs text-slate-500">Set an open password and permissions</p>
+      </div>
+
+      <div class="mt-4 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700">Set Password</label>
+          <div class="relative mt-1">
+            <input id="passInput" type="password" placeholder="Enter strong password" class="w-full rounded-lg border border-slate-300 px-3 py-2 pr-9 font-semibold focus:border-[#e5322d] focus:outline-none">
+            <button type="button" id="togglePassBtn" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700">Confirm Password</label>
+          <input id="confirmInput" type="password" placeholder="Re-enter password" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-semibold focus:border-[#e5322d] focus:outline-none">
+        </div>
+
+        <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="font-bold text-slate-700">Permissions</p>
+          <label class="flex cursor-pointer items-center gap-2 font-medium text-slate-700">
+            <input id="allowPrintCheck" type="checkbox" checked class="rounded text-[#e5322d]">
+            <span>Allow document printing</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-2 font-medium text-slate-700">
+            <input id="allowCopyCheck" type="checkbox" checked class="rounded text-[#e5322d]">
+            <span>Allow copying text and graphics</span>
+          </label>
+        </div>
+
+        <div id="statusBox" class="hidden rounded-xl border border-red-200 bg-red-50 p-3 font-semibold text-[#e5322d]"></div>
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="protectBtn" class="btn-primary-red w-full text-base">
+          <i class="bi bi-shield-lock-fill"></i>
+          <span>Protect &amp; Download PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("protect-pdf");
+
+    let currentFile = null;
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const passInput = document.getElementById("passInput");
+    const confirmInput = document.getElementById("confirmInput");
+    const statusBox = document.getElementById("statusBox");
+    const protectBtn = document.getElementById("protectBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => e.target.files[0] && loadPdf(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      if (e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+    });
+
+    document.getElementById("togglePassBtn").addEventListener("click", () => {
+      const nextType = passInput.type === "password" ? "text" : "password";
+      passInput.type = nextType;
+      confirmInput.type = nextType;
+    });
+
+    async function loadPdf(file) {
+      currentFile = file;
+      document.getElementById("docNameLabel").textContent = file.name;
+      const bytes = await file.arrayBuffer();
+      const doc = await PdfEngine.loadPdfDocument(bytes);
+      document.getElementById("pageCountLabel").textContent = doc.numPages;
+
+      const canvas = document.createElement("canvas");
+      await PdfEngine.renderPageToCanvas(doc, 1, canvas, 0.7);
+      document.getElementById("coverPreview").src = canvas.toDataURL("image/jpeg", 0.85);
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+    }
+
+    function showError(msg) {
+      statusBox.textContent = msg;
+      statusBox.classList.remove("hidden");
+    }
+
+    protectBtn.addEventListener("click", async () => {
+      statusBox.classList.add("hidden");
+      const pwd = passInput.value;
+      if (!pwd) return showError("Please enter a password.");
+      if (pwd !== confirmInput.value) return showError("Passwords do not match.");
+
+      const base = (SITE_CONFIG.API?.baseUrl || "").replace(/\/+$/, "");
+      if (!base) return showError("Worker URL is not configured in site-config.js.");
+
+      protectBtn.disabled = true;
+      protectBtn.innerHTML = `<span>Encrypting PDF...</span>`;
+
+      try {
+        const form = new FormData();
+        form.append("file", currentFile);
+        form.append("password", pwd);
+        form.append("allow_print", document.getElementById("allowPrintCheck").checked);
+        form.append("allow_copy", document.getElementById("allowCopyCheck").checked);
+
+        const res = await fetch(`${base}/api/protect-pdf`, { method: "POST", body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: "Encryption failed." }));
+          throw new Error(err.detail || "Encryption failed.");
+        }
+
+        const outBytes = await res.arrayBuffer();
+        const baseName = currentFile.name.replace(/\.pdf$/i, "");
+        PdfEngine.downloadBytes(outBytes, `${baseName}-protected.pdf`);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        protectBtn.disabled = false;
+        protectBtn.innerHTML = `<i class="bi bi-shield-lock-fill"></i><span>Protect &amp; Download PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

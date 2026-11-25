@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Organize PDF Pages Online Free — Reorder, Duplicate &amp; Sort | Petrovest PDF</title>
+  <meta name="description" content="Sort, reorder, duplicate, rotate, and remove PDF pages visually in a thumbnail grid.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/assets/css/app.css" rel="stylesheet">
+</head>
+<body class="flex min-h-screen flex-col bg-[#f5f6f8] text-slate-900">
+  <div id="app-header"></div>
+
+  <main id="uploadStage" class="flex-grow px-4 py-10">
+    <div class="mx-auto max-w-3xl text-center">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Organize PDF</h1>
+      <p class="mt-2 text-base text-slate-600">
+        Drag and drop pages to reorder, duplicate key pages, rotate, or insert blank pages visually.
+      </p>
+    </div>
+
+    <div id="dropZone" class="dropzone-box">
+      <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
+      <button type="button" id="selectBtn" class="btn-primary-red">
+        <i class="bi bi-grid-1x2 text-2xl"></i>
+        <span>Select PDF File</span>
+      </button>
+      <p class="mt-3 text-sm font-medium text-slate-500">or drop a PDF file here</p>
+    </div>
+  </main>
+
+  <section id="workspaceStage" class="studio-layout hidden flex-grow">
+    <div class="studio-canvas">
+      <div class="mb-4 flex w-full max-w-5xl flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Drag thumbnails to reorder • <span id="pageCountLabel">0</span> pages
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="reverseBtn" class="tool-btn"><i class="bi bi-arrow-down-up"></i> Reverse Order</button>
+          <button type="button" id="addBlankBtn" class="tool-btn"><i class="bi bi-file-earmark-plus"></i> Add Blank Page</button>
+        </div>
+      </div>
+
+      <div id="pagesGrid" class="grid w-full max-w-5xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"></div>
+    </div>
+
+    <aside class="studio-sidebar">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-lg font-extrabold text-slate-900">Organize PDF</h2>
+        <p id="docNameLabel" class="mt-0.5 truncate text-xs text-slate-500">document.pdf</p>
+      </div>
+
+      <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">
+        <i class="bi bi-info-circle-fill mr-1 text-blue-600"></i>
+        Drag any page card to move it. Use the card icons to rotate 90°, duplicate, or delete individual pages.
+      </div>
+
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <button type="button" id="saveActionBtn" class="btn-primary-red w-full text-base">
+          <i class="bi bi-check2-circle"></i>
+          <span>Save Organized PDF</span>
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.4/Sortable.min.js"></script>
+  <script src="/assets/js/site-config.js"></script>
+  <script src="/assets/js/pdf-engine.js"></script>
+  <script>
+    SITE_CONFIG.mountChrome("organize-pdf");
+
+    let sourceBytes = null;
+    let baseName = "document";
+    let pages = []; // { uid, origNum (null if blank), previewUrl, rotation }
+
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const pagesGrid = document.getElementById("pagesGrid");
+    const saveBtn = document.getElementById("saveActionBtn");
+
+    document.getElementById("selectBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => e.target.files[0] && loadPdf(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("is-hover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("is-hover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("is-hover");
+      if (e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+    });
+
+    Sortable.create(pagesGrid, {
+      animation: 150,
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const [moved] = pages.splice(evt.oldIndex, 1);
+        pages.splice(evt.newIndex, 0, moved);
+        renderPages();
+      }
+    });
+
+    document.getElementById("reverseBtn").addEventListener("click", () => {
+      pages.reverse();
+      renderPages();
+    });
+
+    document.getElementById("addBlankBtn").addEventListener("click", () => {
+      pages.push({
+        uid: "blank-" + Date.now() + Math.random(),
+        origNum: null,
+        previewUrl: null,
+        rotation: 0
+      });
+      renderPages();
+    });
+
+    async function loadPdf(file) {
+      baseName = file.name.replace(/\.pdf$/i, "");
+      document.getElementById("docNameLabel").textContent = file.name;
+      sourceBytes = await file.arrayBuffer();
+      const doc = await PdfEngine.loadPdfDocument(sourceBytes);
+
+      document.getElementById("uploadStage").classList.add("hidden");
+      document.getElementById("workspaceStage").classList.remove("hidden");
+
+      pages = [];
+      for (let i = 1; i <= doc.numPages; i += 1) {
+        const canvas = document.createElement("canvas");
+        await PdfEngine.renderPageToCanvas(doc, i, canvas, 0.55);
+        pages.push({
+          uid: `p-${i}-${Math.random().toString(36).slice(2, 6)}`,
+          origNum: i,
+          previewUrl: canvas.toDataURL("image/jpeg", 0.85),
+          rotation: 0
+        });
+      }
+      renderPages();
+    }
+
+    function renderPages() {
+      document.getElementById("pageCountLabel").textContent = pages.length;
+      saveBtn.disabled = pages.length === 0;
+
+      pagesGrid.innerHTML = pages
+        .map(
+          (p, idx) => `
+        <div class="group relative flex flex-col rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xs transition hover:border-slate-300 hover:shadow-md cursor-grab">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+              #${idx + 1} ${p.origNum ? `(Orig ${p.origNum})` : "(Blank)"}
+            </span>
+            <div class="flex items-center gap-1">
+              <button type="button" data-rot="${idx}" class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] hover:bg-slate-900 hover:text-white" title="Rotate 90°">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+              <button type="button" data-dup="${idx}" class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] hover:bg-blue-600 hover:text-white" title="Duplicate">
+                <i class="bi bi-copy"></i>
+              </button>
+              <button type="button" data-del="${idx}" class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] hover:bg-[#e5322d] hover:text-white" title="Remove">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex h-44 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 p-1.5">
+            ${
+              p.previewUrl
+                ? `<img src="${p.previewUrl}" alt="Page ${idx + 1}" class="max-h-full max-w-full rounded shadow-xs transition-transform" style="transform: rotate(${p.rotation}deg)">`
+                : `<div class="flex h-36 w-28 items-center justify-center rounded border border-dashed border-slate-300 bg-white text-[11px] font-bold text-slate-400">BLANK PAGE</div>`
+            }
+          </div>
+        </div>
+      `
+        )
+        .join("");
+
+      pagesGrid.querySelectorAll("[data-rot]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const i = Number(btn.dataset.rot);
+          pages[i].rotation = (pages[i].rotation + 90) % 360;
+          renderPages();
+        });
+      });
+
+      pagesGrid.querySelectorAll("[data-dup]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const i = Number(btn.dataset.dup);
+          pages.splice(i + 1, 0, { ...pages[i], uid: "dup-" + Date.now() + Math.random() });
+          renderPages();
+        });
+      });
+
+      pagesGrid.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (pages.length <= 1) return;
+          pages.splice(Number(btn.dataset.del), 1);
+          renderPages();
+        });
+      });
+    }
+
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `<span>Saving PDF...</span>`;
+
+      try {
+        const srcDoc = await window.PDFLib.PDFDocument.load(sourceBytes.slice(0));
+        const outDoc = await window.PDFLib.PDFDocument.create();
+
+        for (const item of pages) {
+          if (item.origNum === null) {
+            outDoc.addPage([595.28, 841.89]); // A4 blank
+            continue;
+          }
+          const [copied] = await outDoc.copyPages(srcDoc, [item.origNum - 1]);
+          if (item.rotation) {
+            const cur = copied.getRotation()?.angle || 0;
+            copied.setRotation(window.PDFLib.degrees((cur + item.rotation) % 360));
+          }
+          outDoc.addPage(copied);
+        }
+
+        const outBytes = await outDoc.save();
+        PdfEngine.downloadBytes(outBytes, `${baseName}-organized.pdf`);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `<i class="bi bi-check2-circle"></i><span>Save Organized PDF</span>`;
+      }
+    });
+  </script>
+</body>
+</html>
